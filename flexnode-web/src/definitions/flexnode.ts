@@ -59,6 +59,7 @@ export interface FlexFolder extends Resource {
 export type FlexChangeLogItemOpType = "add" | "update" | "remove";
 
 export interface FlexChangeLogItemInput {
+  folderId: string;
   compositeId?: string;
   dataType: FlexResourceType;
   opType: FlexChangeLogItemOpType;
@@ -67,6 +68,7 @@ export interface FlexChangeLogItemInput {
 }
 
 export interface FlexChangeLogItem extends Resource {
+  folderId: string;
   dataType: FlexResourceType;
   opType: FlexChangeLogItemOpType;
   oldData: FlexNode | FlexSection | FlexFolder | null;
@@ -89,22 +91,15 @@ export interface FlexLogEntryCursors {
 export interface FlexLogEntryCursorsOps {
   appendCursor(resourceId: string, logEntryId: string): Promise<void>;
   consumeCursor(resourceId: string): Promise<void>;
+  getCursor(resourceId: string): Promise<string | null>;
 }
 
 export interface FlexChangeLogOps {
   appendEntry(e: FlexChangeLogItem): Promise<void>;
-  getLast(
-    dataType: FlexResourceType,
-    resourceId: string
-  ): Promise<FlexChangeLogItem[]>;
-  clearFrom(resourceId: string | undefined, entryId: string): Promise<void>;
+  getLast(folderId: string): Promise<FlexChangeLogItem[]>;
+  getNext(folderId: string, entryId: string): Promise<FlexChangeLogItem[]>;
+  clearFrom(entryId: string): Promise<void>;
   newLogCompositeId(): string;
-}
-
-export interface FlexNodeOpsUndoFrom {
-  folderId: string;
-  sectionId?: string;
-  nodeId?: string;
 }
 
 export interface FlexNodeOps {
@@ -133,8 +128,8 @@ export interface FlexNodeOps {
    * entries upto that point. this is to allow for redo ops. if node and section
    * id are present, only node id is considered. if section or node id is not
    * provided, will do a global undo/redo. */
-  undo(count: number, from?: FlexNodeOpsUndoFrom): Promise<void>;
-  redo(count: number, from?: FlexNodeOpsUndoFrom): Promise<void>;
+  undo(folderId: string): Promise<void>;
+  redo(folderId: string): Promise<void>;
 }
 
 export const FlexResourceTypesMap = {

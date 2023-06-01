@@ -10,4 +10,10 @@ export class FlexLogEntryCursorsOpsImpl implements FlexLogEntryCursorsOps {
   async consumeCursor(resourceId: string): Promise<void> {
     store.dispatch(StoreChangeCursorActions.remove(resourceId));
   }
+
+  async getCursor(resourceId: string): Promise<string | null> {
+    return store.getState().changecursors.pendingCursors[resourceId] ?? null;
+  }
 }
+
+export const flexLogEntryCursorsOps = new FlexLogEntryCursorsOpsImpl();
