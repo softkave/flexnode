@@ -59,6 +59,7 @@ export interface FlexFolder extends Resource {
 export type FlexChangeLogItemOpType = "add" | "update" | "remove";
 
 export interface FlexChangeLogItemInput {
+  compositeId?: string;
   dataType: FlexResourceType;
   opType: FlexChangeLogItemOpType;
   oldData: FlexNode | FlexSection | FlexFolder | null;
@@ -70,6 +71,9 @@ export interface FlexChangeLogItem extends Resource {
   opType: FlexChangeLogItemOpType;
   oldData: FlexNode | FlexSection | FlexFolder | null;
   newData: FlexNode | FlexSection | FlexFolder | null;
+
+  /** for stringing together log items that happened from the same op. */
+  compositeId?: string;
 }
 
 export interface FlexChangeLog {
@@ -92,8 +96,9 @@ export interface FlexChangeLogOps {
   getLast(
     dataType: FlexResourceType,
     resourceId: string
-  ): Promise<FlexChangeLogItem | null>;
+  ): Promise<FlexChangeLogItem[]>;
   clearFrom(resourceId: string | undefined, entryId: string): Promise<void>;
+  newLogCompositeId(): string;
 }
 
 export interface FlexNodeOpsUndoFrom {

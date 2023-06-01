@@ -32,13 +32,17 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
 
   async createSection(f: FlexSectionInput): Promise<FlexSection> {
     const section = this.newSection(f, "");
-    const headNode = await this.createNode({
-      folderId: section.folderId,
-      name: "",
-      parentNodeId: undefined,
-      sectionId: section.resourceId,
-      type: "div",
-    });
+    const compositeLogId = FlexChangeLogOpsImpl.newLogCompositeId();
+    const headNode = await this.internal_createNode(
+      {
+        folderId: section.folderId,
+        name: "",
+        parentNodeId: undefined,
+        sectionId: section.resourceId,
+        type: "div",
+      },
+      compositeLogId
+    );
 
     // TODO: this may not work when coupled with server. find another solution.
     section.headNodeId = headNode.resourceId;
@@ -48,6 +52,7 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
     store.dispatch(StoreFolderActions.set(folder));
     await FlexChangeLogOpsImpl.appendEntry(
       this.newChangeLogItem({
+        compositeId: compositeLogId,
         dataType: "section",
         opType: "add",
         newData: section,
@@ -58,30 +63,7 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
   }
 
   async createNode(f: FlexNodeInput): Promise<FlexNode> {
-    const node = this.newNode(f);
-    let folder = this.getFolder(f.folderId);
-    folder = { ...folder, nodes: { ...folder.nodes } };
-    folder.nodes[node.resourceId] = node;
-    store.dispatch(StoreFolderActions.set(folder));
-    await FlexChangeLogOpsImpl.appendEntry(
-      this.newChangeLogItem({
-        dataType: "node",
-        opType: "add",
-        newData: node,
-        oldData: null,
-      })
-    );
-
-    if (node.parentNodeId) {
-      const parentNode = this.getNode(node.folderId, node.parentNodeId);
-      const children = [...parentNode.children, node.resourceId];
-
-      // TODO: we'll need composite log items otherwise individual updates like
-      // these will undo and redo to not function correctly.
-      await this.updateNode(node.folderId, node.parentNodeId, { children });
-    }
-
-    return node;
+    return this.internal_createNode(f);
   }
 
   async updateFolder(id: string, f: Partial<FlexFolder>): Promise<FlexFolder> {
@@ -128,23 +110,7 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
     id: string,
     f: Partial<FlexNode>
   ): Promise<FlexNode> {
-    let folder = this.getFolder(folderId);
-    const oldN = this.getNode(folderId, id);
-    const newN = { ...oldN, ...f };
-    folder = {
-      ...folder,
-      nodes: { ...folder.nodes, [id]: newN },
-    };
-    store.dispatch(StoreFolderActions.set(folder));
-    await FlexChangeLogOpsImpl.appendEntry(
-      this.newChangeLogItem({
-        dataType: "node",
-        opType: "update",
-        newData: newN,
-        oldData: oldN,
-      })
-    );
-    return newN;
+    return this.internal_updateNode(folderId, id, f);
   }
 
   async deleteFolder(id: string): Promise<void> {
@@ -182,24 +148,51 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
     folder = { ...folder, nodes: { ...folder.nodes } };
     delete folder.nodes[id];
     store.dispatch(StoreFolderActions.set(folder));
+
+    const compositeLogId = FlexChangeLogOpsImpl.newLogCompositeId();
     await FlexChangeLogOpsImpl.appendEntry(
       this.newChangeLogItem({
+        compositeId: compositeLogId,
         dataType: "node",
         opType: "remove",
         newData: null,
         oldData: node,
       })
     );
+
+    if (node.parentNodeId) {
+      const parentNode = this.getNode(folderId, node.parentNodeId);
+      const parentNodeChildren = parentNode.children.filter(
+        (id) => id !== node.resourceId
+      );
+      await this.internal_updateNode(
+        folderId,
+        node.parentNodeId,
+        { children: parentNodeChildren },
+        compositeLogId
+      );
+    }
   }
 
   async undo(
     count: number,
     from?: FlexNodeOpsUndoFrom | undefined
   ): Promise<void> {
+    // one of replaceFolder or folderId + (replaceSections | replaceNodes |
+    // removeSections | removeNodes)
+    const replaceFolder: FlexFolder | undefined = undefined;
+    let folderId: string | undefined = undefined;
+    const replaceSections: FlexSection[] = [];
+    const replaceNodes: FlexNode[] = [];
+    const removeSections: string[] = [];
+    const removeNodes: string[] = [];
+    let logItems: FlexChangeLogItem[] = [];
+
     if (from) {
       if (from.nodeId) {
-        const entry = FlexChangeLogOpsImpl.getLast("node", from.nodeId);
+        logItems = await FlexChangeLogOpsImpl.getLast("node", from.nodeId);
       } else if (from.sectionId) {
+        logItems = await FlexChangeLogOpsImpl.getLast("node", from.nodeId);
       }
     } else {
     }
@@ -262,11 +255,46 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
     });
   }
 
-  protected updateNodeNoLog(
+  protected async internal_createNode(
+    f: FlexNodeInput,
+    compositeLogId?: string
+  ): Promise<FlexNode> {
+    const node = this.newNode(f);
+    let folder = this.getFolder(f.folderId);
+    folder = { ...folder, nodes: { ...folder.nodes } };
+    folder.nodes[node.resourceId] = node;
+    store.dispatch(StoreFolderActions.set(folder));
+    await FlexChangeLogOpsImpl.appendEntry(
+      this.newChangeLogItem({
+        dataType: "node",
+        opType: "add",
+        newData: node,
+        oldData: null,
+      })
+    );
+
+    if (node.parentNodeId) {
+      const parentNode = this.getNode(node.folderId, node.parentNodeId);
+      const children = [...parentNode.children, node.resourceId];
+      compositeLogId =
+        compositeLogId ?? FlexChangeLogOpsImpl.newLogCompositeId();
+      await this.internal_updateNode(
+        node.folderId,
+        node.parentNodeId,
+        { children },
+        compositeLogId
+      );
+    }
+
+    return node;
+  }
+
+  protected async internal_updateNode(
     folderId: string,
     id: string,
-    f: Partial<FlexNode>
-  ) {
+    f: Partial<FlexNode>,
+    compositeLogId?: string
+  ): Promise<FlexNode> {
     let folder = this.getFolder(folderId);
     const oldN = this.getNode(folderId, id);
     const newN = { ...oldN, ...f };
@@ -275,6 +303,48 @@ export class FlexNodeOpsImpl implements FlexNodeOps {
       nodes: { ...folder.nodes, [id]: newN },
     };
     store.dispatch(StoreFolderActions.set(folder));
-    return [oldN, newN];
+    await FlexChangeLogOpsImpl.appendEntry(
+      this.newChangeLogItem({
+        compositeId: compositeLogId,
+        dataType: "node",
+        opType: "update",
+        newData: newN,
+        oldData: oldN,
+      })
+    );
+
+    if (
+      f.parentNodeId &&
+      oldN.parentNodeId &&
+      oldN.parentNodeId !== f.parentNodeId
+    ) {
+      const oldParentNode = this.getNode(folderId, oldN.parentNodeId);
+      const newParentNode = this.getNode(folderId, f.parentNodeId);
+      const oldParentNodeChildren = oldParentNode.children.filter(
+        (id) => id !== oldN.resourceId
+      );
+      const newParentNodeChildren = [
+        ...newParentNode.children,
+        oldN.resourceId,
+      ];
+      compositeLogId =
+        compositeLogId ?? FlexChangeLogOpsImpl.newLogCompositeId();
+      await Promise.all([
+        this.internal_updateNode(
+          folderId,
+          oldN.parentNodeId,
+          { children: oldParentNodeChildren },
+          compositeLogId
+        ),
+        this.internal_updateNode(
+          folderId,
+          f.parentNodeId,
+          { children: newParentNodeChildren },
+          compositeLogId
+        ),
+      ]);
+    }
+
+    return newN;
   }
 }
