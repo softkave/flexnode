@@ -52,6 +52,7 @@ export interface FlexFolderInput {
 export interface FlexFolder extends Resource {
   name: string;
   description?: string;
+  children: string[];
   nodes: Record<string, FlexNode>;
   sections: Record<string, FlexSection>;
 }
