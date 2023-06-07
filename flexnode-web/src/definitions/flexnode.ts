@@ -32,16 +32,20 @@ export interface FlexSectionInput {
   name: string;
   description?: string;
   folderId: string;
+  parentSectionId: string | undefined;
+  childrenSections: string[];
+  childrenNodes: string[];
+  styles: Record<string, string | number | undefined>;
 }
 
 export interface FlexSection extends Resource {
   name: string;
   description?: string;
   folderId: string;
-
-  /* new sections will automatically have a node created in them, serving same
-  purpose as <body/> in html. */
-  headNodeId: string;
+  parentSectionId: string | undefined;
+  childrenSections: string[];
+  childrenNodes: string[];
+  styles: Record<string, string | number | undefined>;
 }
 
 export interface FlexFolderInput {

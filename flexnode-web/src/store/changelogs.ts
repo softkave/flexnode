@@ -16,7 +16,7 @@ export const StoreChangeLogsActions = {
 const initialState: FlexChangeLog = { entries: [] };
 export const storeChangeLogsReducer = createReducer(initialState, (builder) => {
   builder
-    .addCase(set, (state, action) => {
+    .addCase(append, (state, action) => {
       const entries = toArray(action.payload);
       state.entries = state.entries.concat(entries);
     })

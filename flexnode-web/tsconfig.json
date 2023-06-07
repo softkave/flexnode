@@ -16,11 +16,11 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@/definitions/*": ["./src/definitions"],
-      "@/store/*": ["./src/store"],
-      "@/components/*": ["./src/components"],
-      "@/datalayer/*": ["./src/datalayer"],
-      "@/utils/*": ["./src/utils"]
+      "@/definitions/*": ["./src/definitions/*"],
+      "@/store/*": ["./src/store/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/dataLayer/*": ["./src/dataLayer/*"],
+      "@/utils/*": ["./src/utils/*"]
     }
   },
   "include": ["src"]

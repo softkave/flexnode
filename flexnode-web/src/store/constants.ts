@@ -11,4 +11,8 @@ export const StoreActionKeys = {
     set: "changecursors/set",
     remove: "changecursors/remove",
   },
+  kv: {
+    set: "kv/set",
+    remove: "kv/remove",
+  },
 };
