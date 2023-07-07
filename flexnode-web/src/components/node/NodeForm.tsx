@@ -1,21 +1,21 @@
 import { flexNodeOps } from "@/dataLayer/FlexNodeOps";
 import { FlexFolder } from "@/definitions/flexnode";
 import { StoreKvActions, StoreKvKeys } from "@/store/kv";
-import { Form, Input } from "antd";
+import { Form, Input, Select } from "antd";
 import { useFormik } from "formik";
 import { useAppDispatch } from "../../hooks/store";
 
-export interface ISectionFormProps {
+export interface INodeFormProps {
   folder: FlexFolder;
-  sectionId: string;
+  nodeId: string;
 }
 
-const SectionForm: React.FC<ISectionFormProps> = (props) => {
-  const { folder, sectionId } = props;
+const NodeForm: React.FC<INodeFormProps> = (props) => {
+  const { folder, nodeId } = props;
   const dispatch = useAppDispatch();
 
   const formik = useFormik({
-    initialValues: folder.sections[sectionId],
+    initialValues: folder.nodes[nodeId],
     onSubmit(values, formikHelpers) {
       // we're using real-time update to redux so we don't need this
     },
@@ -57,18 +57,21 @@ const SectionForm: React.FC<ISectionFormProps> = (props) => {
 
   const descriptionNode = (
     <Form.Item
-      label="Description"
-      help={formik.touched?.description && formik.errors?.description}
+      label="Type"
+      help={formik.touched?.type && formik.errors?.type}
       labelCol={{ span: 24 }}
       wrapperCol={{ span: 24 }}
     >
-      <Input.TextArea
-        name="description"
-        value={formik.values.description}
-        onBlur={formik.handleBlur}
-        onChange={formik.handleChange}
-        placeholder="Enter section description"
-        autoSize={{ minRows: 3 }}
+      <Select
+        value={formik.values.type}
+        style={{ width: 120 }}
+        onChange={(value) =>
+          formik.setValues({ ...formik.values, type: value })
+        }
+        options={[
+          { value: "div", label: "Box" },
+          // { value: "img", label: "Image" },
+        ]}
       />
     </Form.Item>
   );
@@ -81,4 +84,4 @@ const SectionForm: React.FC<ISectionFormProps> = (props) => {
   );
 };
 
-export default SectionForm;
+export default NodeForm;
